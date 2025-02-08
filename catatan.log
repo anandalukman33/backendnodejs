@@ -1,0 +1,64 @@
+Berikut adalah ringkasan dari langkah-langkah dan syntax yang telah kita gunakan:
+
+1. Inisialisasi Proyek
+bash
+npm init -y
+
+Perintah ini digunakan untuk membuat file package.json secara otomatis dengan pengaturan default.
+
+2. Menginstal Dependensi
+Berikut adalah beberapa dependensi yang mungkin telah kita instal:
+bash
+npm install express
+npm install pg
+npm install jsonwebtoken
+npm install bcrypt
+npm install body-parser
+express: Framework untuk membangun aplikasi web.
+pg: Driver PostgreSQL untuk Node.js.
+jsonwebtoken: Untuk membuat dan memverifikasi token JWT.
+bcrypt: Untuk hashing password.
+body-parser: Middleware untuk parsing body dari request.
+
+3. Menjalankan Server
+bash
+node server.js
+Perintah ini digunakan untuk menjalankan server Node.js yang telah kita buat.
+
+4. Struktur Kode
+Berikut adalah beberapa bagian penting dari kode yang telah kita buat:
+
+a. Middleware untuk Verifikasi Token
+javascript
+const jwt = require('jsonwebtoken');
+
+function authenticateToken(req, res, next) {
+    const token = req.headers['authorization'];
+    if (!token) return res.sendStatus(401); // Unauthorized
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403); // Forbidden
+        req.user = user;
+        next();
+    });
+}
+
+b. Endpoint Login
+javascript
+router.post('/login', async (req, res) => {
+    const { email, password } = req.body;
+    // Verifikasi email dan password...
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token });
+});
+
+c. Endpoint yang Dilindungi
+javascript
+
+router.get('/api/users', authenticateToken, async (req, res) => {
+    // Ambil data pengguna...
+});
+
+5. Menggunakan Postman
+Login: Menggunakan endpoint login untuk mendapatkan token.
+Akses Endpoint yang Dilindungi: Menggunakan token di header Authorization untuk mengakses endpoint yang dilindungi.
