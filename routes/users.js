@@ -1,28 +1,49 @@
 // routes/users.js
+require('dotenv').config();
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 const { authenticateToken } = require('../middleware');
 
-require('dotenv').config();
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Endpoint untuk login
+// Mendapatkan semua pengguna
+router.get('/', async (req, res) => {
+  try {
+    const users = await User.findAll();
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Menambahkan pengguna
+router.post('/register', async (req, res) => {
+  const { name, email, password } = req.body;
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ name, email, password: hashedPassword });
+    res.status(201).json(user);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Login pengguna
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    const user = result.rows[0];
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(400).json({ error: 'User not found' });
 
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
 
-    // Buat token
-    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '3600s' });
     res.json({ token });
   } catch (err) {
     console.error(err);
@@ -30,64 +51,45 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Endpoint untuk mendapatkan semua pengguna (dilindungi)
-router.get('/', authenticateToken, async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM users');
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// Endpoint untuk menambahkan pengguna
-router.post('/', async (req, res) => {
-  const { name, email, password } = req.body;
-  const hashedPassword = bcrypt.hashSync(password, 10); // Enkripsi password
-
-  try {
-    const result = await pool.query(
-      'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *',
-      [name, email, hashedPassword]
-    );
-    res.status(201).json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// Endpoint untuk memperbarui pengguna berdasarkan ID (dilindungi)
+// Memperbarui pengguna
 router.put('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { name, email } = req.body;
+  const { name, email, password } = req.body;
 
   try {
-    const result = await pool.query(
-      'UPDATE users SET name = $1, email = $2 WHERE id = $3 RETURNING *',
-      [name, email, id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    // Memperbarui password jika diberikan
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      user.password = hashedPassword;
     }
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
+
+    // Memperbarui nama dan email
+    user.name = name || user.name;
+    user.email = email || user.email;
+
+    // Simpan perubahan ke database
+    await user.save();
+
+    res.json({ message: 'User updated successfully', user });
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Endpoint untuk menghapus pengguna berdasarkan ID (dilindungi)
+
+// Menghapus pengguna
 router.delete('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-
   try {
-    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING *', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json({ message: 'User deleted successfully' });
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    await user.destroy();
+    res.json({ message: 'User deleted successfully', user });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });

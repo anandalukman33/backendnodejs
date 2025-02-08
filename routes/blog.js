@@ -1,66 +1,60 @@
-// routes/blog.js
 const express = require('express');
 const router = express.Router();
-const pool = require('../db');
-const { authenticateToken } = require('../middleware');
+const Blog = require('../models/Blog'); // Pastikan jalur ini sesuai dengan lokasi model Blog
+const authenticateToken = require('../middleware/auth'); // Pastikan jalur ini sesuai dengan lokasi middleware
 
-// Mendapatkan semua blog (dilindungi)
-router.get('/', authenticateToken, async (req, res) => {
+// Mendapatkan semua blog
+router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM blog');
-    res.json(result.rows);
+    const blogs = await Blog.findAll();
+    res.json(blogs);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Menambahkan blog (dilindungi)
+// Menambahkan blog baru
 router.post('/', authenticateToken, async (req, res) => {
   const { title, content, metadata } = req.body;
-
   try {
-    const result = await pool.query(
-      'INSERT INTO blog (title, content, metadata) VALUES ($1, $2, $3) RETURNING *',
-      [title, content, metadata]
-    );
-    res.status(201).json(result.rows[0]);
+    const blog = await Blog.create({ title, content, metadata });
+    res.status(201).json(blog);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Memperbarui blog berdasarkan ID (dilindungi)
+// Memperbarui blog
 router.put('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { title, content, metadata } = req.body;
-
   try {
-    const result = await pool.query(
-      'UPDATE blog SET title = $1, content = $2, metadata = $3 WHERE id = $4 RETURNING *',
-      [title, content, metadata, id]
-    );
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Blog not found' });
-    }
-    res.json(result.rows[0]);
+    const blog = await Blog.findByPk(id);
+    if (!blog) return res.status(404).json({ error: 'Blog not found' });
+
+    blog.title = title || blog.title;
+    blog.content = content || blog.content;
+    blog.metadata = metadata || blog.metadata;
+
+    await blog.save();
+    res.json(blog);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// Menghapus blog berdasarkan ID (dilindungi)
+// Menghapus blog
 router.delete('/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-
   try {
-    const result = await pool.query('DELETE FROM blog WHERE id = $1 RETURNING *', [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Blog not found' });
-    }
-    res.json({ message: 'Blog deleted successfully' });
+    const blog = await Blog.findByPk(id);
+    if (!blog) return res.status(404).json({ error: 'Blog not found' });
+
+    await blog.destroy();
+    res.json({ message: 'Blog deleted successfully', blog });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Internal Server Error' });
