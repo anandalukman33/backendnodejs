@@ -1,0 +1,64 @@
+Get All User
+query {
+  users {
+    id
+    name
+    email
+  }
+}
+
+
+Add User 
+mutation {
+  addUser(name: "John Doe", email: "john@example.com", password: "password123") {
+    id
+    name
+    email
+  }
+}
+
+
+
+Get All Blogs 
+query {
+  blogs {
+    id
+    title
+    content
+    metadata {
+      tags
+      views
+      author
+      rating
+      is_published
+    }
+  }
+}
+
+
+Menambahkan Query pada Table Blog.
+
+mutation {
+  addBlog(
+    title: "Judul Blog Baru",
+    content: "Ini adalah konten blog baru.",
+    metadata: {
+      tags: ["nodejs", "graphql"],
+      views: 0,
+      author: "Reina",
+      rating: 5,
+      is_published: true
+    }
+  ) {
+    id
+    title
+    content
+    metadata {
+      tags
+      views
+      author
+      rating
+      is_published
+    }
+  }
+}
